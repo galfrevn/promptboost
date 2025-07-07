@@ -22,28 +22,28 @@ export class ConfigManager {
         openai: {
           name: 'openai',
           apiKey: '',
-          model: 'gpt-4o',
+          model: 'gpt-4.1-mini',
           baseUrl: 'https://api.openai.com/v1',
           enabled: false,
         },
         anthropic: {
           name: 'anthropic',
           apiKey: '',
-          model: 'claude-3-5-sonnet-20241022',
+          model: 'claude-4-sonnet',
           baseUrl: 'https://api.anthropic.com',
           enabled: false,
         },
         grok: {
           name: 'grok',
           apiKey: '',
-          model: 'grok-beta',
+          model: 'grok-3',
           baseUrl: 'https://api.x.ai/v1',
           enabled: false,
         },
         google: {
           name: 'google',
           apiKey: '',
-          model: 'gemini-pro',
+          model: 'gemini-2.5-flash',
           baseUrl: 'https://generativelanguage.googleapis.com',
           enabled: false,
         },
@@ -53,13 +53,8 @@ export class ConfigManager {
         temperature: 0.7,
         timeout: 30000,
         retries: 3,
-        defaultTemplate: 'general',
-        outputFormat: 'markdown',
-      },
-      templates: {
-        general: 'templates/general.md',
-        coding: 'templates/coding.md',
-        analysis: 'templates/analysis.md',
+        outputFormat: 'plain',
+        defaultMode: 'md',
       },
     };
   }
@@ -88,10 +83,6 @@ export class ConfigManager {
         ...(typedConfig.providers as Record<string, Provider>),
       },
       settings: { ...defaultConfig.settings, ...(typedConfig.settings as Record<string, unknown>) },
-      templates: {
-        ...defaultConfig.templates,
-        ...(typedConfig.templates as Record<string, string>),
-      },
     };
   }
 

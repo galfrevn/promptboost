@@ -2,7 +2,7 @@
 
 import { Command } from 'commander';
 import { enhanceCommand } from '@/commands/enhance.js';
-import { configCommand } from '@/commands/config.js';
+import { showConfig, setConfig, removeConfig } from '@/commands/config.js';
 import { testCommand } from '@/commands/test.js';
 import { logger } from '@/utils/logger.js';
 import pc from 'picocolors';
@@ -17,16 +17,42 @@ program
 program
   .argument('[prompt]', 'The prompt to enhance')
   .option('-p, --provider <provider>', 'AI provider to use')
-  .option('-t, --template <template>', 'Template to apply')
   .option('-f, --file <file>', 'Read prompt from file')
   .option('-c, --copy', 'Copy enhanced prompt to clipboard')
   .option('-v, --verbose', 'Enable verbose logging')
-  .option('-i, --interactive', 'Interactive mode')
   .option('-o, --output <file>', 'Save enhanced prompt to file')
-  .option('--format <format>', 'Output format (markdown|plain)', 'markdown')
+  .option('--format <format>', 'Output format (plain|markdown)', 'plain')
+  .option('-s, --stream', 'Stream the response in real-time')
+  .option('-m, --mode <mode>', 'Enhancement mode (sm|md|lg)', 'md')
   .action(enhanceCommand);
 
-program.command('config').description('Manage configuration').action(configCommand);
+const config = program.command('config').description('Manage configuration');
+
+config
+  .command('show')
+  .description('Display current configuration')
+  .action(showConfig);
+
+config
+  .command('set')
+  .description('Set configuration values')
+  .option('--provider <name>', 'Provider name')
+  .option('--key <key>', 'API key')
+  .option('--model <model>', 'Model name')
+  .option('--default <name>', 'Set default provider')
+  .action((options) => {
+    const allOptions = { ...program.opts(), ...options };
+    setConfig(allOptions);
+  });
+
+config
+  .command('remove')
+  .description('Remove provider configuration')
+  .option('--provider <name>', 'Provider name to remove')
+  .action((options) => {
+    const allOptions = { ...program.opts(), ...options };
+    removeConfig(allOptions);
+  });
 
 program
   .command('test')

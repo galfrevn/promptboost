@@ -1,83 +1,65 @@
-import { configManager } from '@/utils/config.js';
+import { configManager } from '@/utils/config';
 import pc from 'picocolors';
 
-export async function configCommand() {
-  console.log(pc.cyan('📄 Configuration Management'));
-  console.log('Available commands:');
-  console.log('• promptboost config show          - Display current configuration');
-  console.log('• promptboost config set           - Set configuration values');
-  console.log('• promptboost config default       - Set default provider');
-  console.log('• promptboost config reset         - Reset to defaults');
-  console.log('\nExamples:');
-  console.log('• promptboost config set --provider openai --key sk-...');
-  console.log('• promptboost config default --provider anthropic');
-}
-
-export async function configShowCommand() {
+export async function showConfig() {
   try {
     const config = await configManager.load();
-
     console.log(pc.cyan('📄 Current Configuration\n'));
-
     console.log(pc.bold('Default Provider:'), config.defaultProvider);
     console.log(pc.bold('Config Path:'), configManager.getConfigPath());
     console.log();
-
     console.log(pc.bold('Providers:'));
     for (const [name, provider] of Object.entries(config.providers)) {
       const status =
         provider.enabled && provider.apiKey ? pc.green('✓ Configured') : pc.red('✗ Not configured');
-
       console.log(`  ${name.padEnd(12)} ${status} (${provider.model})`);
     }
-
-    console.log();
-    console.log(pc.bold('Settings:'));
-    console.log(`  Max Tokens:    ${config.settings.maxTokens}`);
-    console.log(`  Temperature:   ${config.settings.temperature}`);
-    console.log(`  Timeout:       ${config.settings.timeout}ms`);
-    console.log(`  Retries:       ${config.settings.retries}`);
-    console.log(`  Template:      ${config.settings.defaultTemplate}`);
-    console.log(`  Format:        ${config.settings.outputFormat}`);
   } catch (error) {
     console.error(pc.red('❌ Failed to load configuration:'), error);
     process.exit(1);
   }
 }
 
-export async function configSetCommand(options: {
+export async function setConfig(options: {
   provider?: string;
   key?: string;
   model?: string;
-  baseUrl?: string;
-  enabled?: string;
+  default?: string;
 }) {
   try {
-    if (!options.provider) {
-      throw new Error('Provider is required. Use --provider <name>');
-    }
+    // Case 1: Set default provider
+    if (options.default) {
+      await configManager.setDefaultProvider(options.default);
+      console.log(pc.green(`✓ Default provider set to: ${options.default}`));
+    } 
+    // Case 2: Set provider-specific config (key or model)
+    else if (options.provider && (options.key || options.model)) {
+      const updates: { apiKey?: string; model?: string; enabled?: boolean } = {};
+      if (options.key) {
+        updates.apiKey = options.key;
+        updates.enabled = true; // Also enable provider when setting a key
+      }
+      if (options.model) {
+        updates.model = options.model;
+      }
 
-    const updates: Record<string, unknown> = {};
-
-    if (options.key) updates.apiKey = options.key;
-    if (options.model) updates.model = options.model;
-    if (options.baseUrl) updates.baseUrl = options.baseUrl;
-    if (options.enabled !== undefined) {
-      updates.enabled = options.enabled.toLowerCase() === 'true';
-    }
-
-    if (Object.keys(updates).length === 0) {
-      throw new Error('No configuration updates provided');
-    }
-
-    await configManager.setProvider(options.provider, updates);
-
-    console.log(pc.green('✓ Configuration updated successfully'));
-
-    if (options.key) {
-      updates.enabled = true;
-      await configManager.setProvider(options.provider, { enabled: true });
-      console.log(pc.gray(`  Provider ${options.provider} enabled`));
+      await configManager.setProvider(options.provider, updates);
+      console.log(pc.green(`✓ Configuration updated for provider: ${options.provider}`));
+      if (updates.enabled) {
+        console.log(pc.gray(`  Provider ${options.provider} enabled.`));
+      }
+    } 
+    // Case 3: Invalid combination of flags
+    else {
+      if (options.provider) {
+        console.log(
+          pc.yellow('No action taken. When using --provider, you must also specify --key or --model.'),
+        );
+      } else {
+        console.log(
+          pc.yellow('No action taken. Use --default <provider> or --provider <name> with --key or --model.'),
+        );
+      }
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -86,29 +68,19 @@ export async function configSetCommand(options: {
   }
 }
 
-export async function configDefaultCommand(options: { provider: string }) {
+export async function removeConfig(options: { provider: string }) {
   try {
     if (!options.provider) {
-      throw new Error('Provider is required. Use --provider <name>');
+      throw new Error('Provider name is required. Use --provider <name>');
     }
-
-    await configManager.setDefaultProvider(options.provider);
-    console.log(pc.green(`✓ Default provider set to: ${options.provider}`));
+    await configManager.setProvider(options.provider, {
+      apiKey: '',
+      enabled: false,
+    });
+    console.log(pc.green(`✓ Provider '${options.provider}' configuration removed.`));
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(pc.red('❌ Failed to set default provider:'), errorMessage);
-    process.exit(1);
-  }
-}
-
-export async function configResetCommand() {
-  try {
-    await configManager.reset();
-    console.log(pc.green('✓ Configuration reset to defaults'));
-    console.log(pc.yellow('💡 You will need to reconfigure your API keys'));
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(pc.red('❌ Failed to reset configuration:'), errorMessage);
+    console.error(pc.red('❌ Failed to remove provider configuration:'), errorMessage);
     process.exit(1);
   }
 }
