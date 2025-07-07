@@ -4,8 +4,8 @@ import type {
   EnhanceResponse,
   EnhanceOptions,
   APIResponse,
-  ProviderError,
 } from '@/types/index.js';
+import { ProviderError } from '@/types/index.js';
 import { logger } from '@/utils/logger.js';
 
 export abstract class BaseProvider {
@@ -103,16 +103,61 @@ export abstract class BaseProvider {
     retryable: boolean = false,
     statusCode?: number,
   ): ProviderError {
-    const error = new Error(message) as ProviderError;
-    error.provider = this.provider.name;
-    error.code = code;
-    error.retryable = retryable;
-    error.statusCode = statusCode;
-    return error;
+    return new ProviderError(message, this.provider.name, code, retryable, statusCode);
   }
 
   protected delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  protected async handleStreamResponse(
+    response: Response,
+    onChunk: (chunk: string) => void
+  ): Promise<string> {
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw this.createError('No response body to stream');
+    }
+
+    const decoder = new TextDecoder();
+    let fullContent = '';
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6).trim();
+            if (data === '[DONE]') continue;
+            
+            try {
+              const parsed = JSON.parse(data);
+              const content = this.extractContentFromStreamChunk(parsed);
+              if (content) {
+                fullContent += content;
+                onChunk(content);
+              }
+            } catch {
+              // Skip invalid JSON lines
+            }
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+
+    return fullContent;
+  }
+
+  protected extractContentFromStreamChunk(chunk: unknown): string {
+    // Default implementation - providers should override this
+    return '';
   }
 
   protected countTokens(text: string): number {
@@ -156,6 +201,8 @@ export abstract class BaseProvider {
   }
 
   abstract enhance(request: EnhanceRequest): Promise<EnhanceResponse>;
+
+  abstract enhanceStream(request: EnhanceRequest, onChunk: (chunk: string) => void): Promise<EnhanceResponse>;
 
   abstract test(): Promise<boolean>;
 
