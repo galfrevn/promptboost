@@ -15,7 +15,9 @@
     "test": "bun test",
     "lint": "biome check .",
     "format": "biome format --write .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "details": "bun run scripts/details.ts",
+    "release": "bun run scripts/version.ts"
   },
   "keywords": [
     "cli",
@@ -32,6 +34,7 @@
     "email": "galfre.vn@gmail.com",
     "name": "Galfré Valentin"
   },
+  "repository": "https://github.com/galfrevn/promptboost",
   "license": "MIT",
   "dependencies": {
     "commander": "^12.1.0",
@@ -40,8 +43,9 @@
     "clipboardy": "^4.0.0"
   },
   "devDependencies": {
-    "@types/bun": "latest",
     "@biomejs/biome": "^1.9.4",
+    "@types/bun": "latest",
+    "readline": "^1.3.0",
     "typescript": "^5.7.2"
   },
   "engines": {
