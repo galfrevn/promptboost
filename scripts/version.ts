@@ -28,23 +28,6 @@ function createNewVersion(versionType: 'patch' | 'minor' | 'major') {
   }
 }
 
-function formatPackageJson(): void {
-  try {
-    console.log('Formatting package.json...');
-    execSync('bun run lint:fix package.json', { stdio: 'inherit' });
-    console.log('✅ package.json formatted successfully');
-  } catch (error) {
-    // If the specific lint command fails, try a general format
-    try {
-      execSync('bunx @biomejs/biome format --write package.json', { stdio: 'inherit' });
-      console.log('✅ package.json formatted with Biome');
-    } catch (fallbackError) {
-      console.warn('⚠️ Could not format package.json automatically');
-      console.warn('Please run "bun run lint:fix" manually if needed');
-    }
-  }
-}
-
 function pushTagForVersion(version: string): void {
   try {
     execSync(`git push --atomic origin main ${version}`);
@@ -56,6 +39,5 @@ function pushTagForVersion(version: string): void {
 }
 
 const newVersion = createNewVersion(versionType);
-formatPackageJson();
 pushTagForVersion(newVersion);
 console.log('Release done! 🚀');

@@ -28,6 +28,6 @@
     }
   },
   "files": {
-    "ignore": ["node_modules/**", "dist/**", "*.lock"]
+    "ignore": ["node_modules/**", "dist/**", "*.lock", "package.json"]
   }
 }
