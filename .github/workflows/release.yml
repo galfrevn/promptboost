@@ -227,7 +227,7 @@ jobs:
           echo "::endgroup::"
 
       - name: 📤 Upload build artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: build-artifacts-${{ steps.package.outputs.version }}
           path: |
