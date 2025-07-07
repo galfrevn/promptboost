@@ -4,7 +4,12 @@ import type { CommandOptions, EnhanceResponse } from '@/types/index.js';
 import { configManager } from '@/utils/config.js';
 import { logger } from '@/utils/logger.js';
 import { symbols } from '@/utils/symbols.js';
-import { displayValidationErrors, validateOptions, validatePrompt } from '@/utils/validation.js';
+import {
+  displayValidationErrors,
+  validateModelOptions,
+  validateOptions,
+  validatePrompt,
+} from '@/utils/validation.js';
 import spinners from 'cli-spinners';
 import clipboard from 'clipboardy';
 import pc from 'picocolors';
@@ -96,6 +101,23 @@ export async function enhanceCommand(prompt?: string, options: CommandOptions = 
       console.log(pc.red(`${symbols.cross} Provider not found: ${providerName}`));
       console.log(pc.dim(`${symbols.info} Available providers: openai, anthropic, grok, google`));
       process.exit(1);
+    }
+
+    // Validate model name and streaming compatibility
+    const modelValidation = validateModelOptions(providerName, provider.model, !!options.stream);
+    if (!modelValidation.isValid) {
+      console.log(pc.red(`${symbols.cross} Model validation failed:`));
+      for (const error of modelValidation.errors) {
+        console.log(pc.red(`  • ${error}`));
+      }
+      process.exit(1);
+    }
+
+    // Show model validation warnings if any
+    if (modelValidation.warnings.length > 0 && options.verbose) {
+      for (const warning of modelValidation.warnings) {
+        console.log(pc.yellow(`${symbols.warning} ${warning}`));
+      }
     }
 
     if (!provider.enabled || !provider.apiKey) {

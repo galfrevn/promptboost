@@ -52,6 +52,25 @@ export async function setConfig(options: {
         isFirstProvider = enabledProviders.length === 0;
       }
       if (options.model) {
+        // Validate the model for the provider
+        const { validateModelOptions } = await import('@/utils/validation.js');
+        const modelValidation = validateModelOptions(options.provider, options.model, false);
+
+        if (!modelValidation.isValid) {
+          console.log(pc.red(`${symbols.cross} Invalid model configuration:`));
+          for (const error of modelValidation.errors) {
+            console.log(pc.red(`  • ${error}`));
+          }
+          process.exit(1);
+        }
+
+        // Show warnings for special models
+        if (modelValidation.warnings.length > 0) {
+          for (const warning of modelValidation.warnings) {
+            console.log(pc.yellow(`${symbols.warning} ${warning}`));
+          }
+        }
+
         updates.model = options.model;
       }
 

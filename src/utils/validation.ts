@@ -1,4 +1,10 @@
 import pc from 'picocolors';
+import {
+  type ModelValidationResult,
+  getRecommendedModel,
+  isValidModel,
+  validateModelAndStreaming,
+} from './model-validation.js';
 import { symbols } from './symbols.js';
 
 export interface ValidationError {
@@ -239,4 +245,16 @@ export function validateOptions(options: Record<string, unknown>): ValidationRes
     isValid: errors.length === 0,
     errors,
   };
+}
+
+/**
+ * Validates model options for AI processing
+ */
+export function validateModelOptions(
+  provider: string,
+  model: string,
+  useStreaming = false,
+): ModelValidationResult {
+  // Use the comprehensive model validation from model-validation.ts
+  return validateModelAndStreaming(provider, model, useStreaming);
 }
