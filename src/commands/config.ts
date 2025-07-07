@@ -37,19 +37,38 @@ export async function setConfig(options: {
     }
     // Case 2: Set provider-specific config (key or model)
     else if (options.provider && (options.key || options.model)) {
+      const config = await configManager.load();
       const updates: { apiKey?: string; model?: string; enabled?: boolean } = {};
+      let isFirstProvider = false;
+
       if (options.key) {
         updates.apiKey = options.key;
         updates.enabled = true; // Also enable provider when setting a key
+
+        // Check if this is the first provider being configured
+        const enabledProviders = Object.values(config.providers).filter(
+          (p) => p.enabled && p.apiKey,
+        );
+        isFirstProvider = enabledProviders.length === 0;
       }
       if (options.model) {
         updates.model = options.model;
       }
 
       await configManager.setProvider(options.provider, updates);
-      console.log(
-        pc.green(`${symbols.check} Configuration updated for provider: ${options.provider}`),
-      );
+
+      // If this is the first provider with an API key, make it the default
+      if (isFirstProvider && options.key) {
+        await configManager.setDefaultProvider(options.provider);
+        console.log(
+          pc.green(`${symbols.check} ${options.provider} configured and set as default provider`),
+        );
+      } else {
+        console.log(
+          pc.green(`${symbols.check} Configuration updated for provider: ${options.provider}`),
+        );
+      }
+
       if (updates.enabled) {
         console.log(pc.gray(`  Provider ${options.provider} enabled.`));
       }

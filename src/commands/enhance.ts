@@ -3,6 +3,8 @@ import { createProvider } from '@/providers/index.js';
 import type { CommandOptions, EnhanceResponse } from '@/types/index.js';
 import { configManager } from '@/utils/config.js';
 import { logger } from '@/utils/logger.js';
+import { symbols } from '@/utils/symbols.js';
+import { displayValidationErrors, validateOptions, validatePrompt } from '@/utils/validation.js';
 import spinners from 'cli-spinners';
 import clipboard from 'clipboardy';
 import pc from 'picocolors';
@@ -33,36 +35,92 @@ export async function enhanceCommand(prompt?: string, options: CommandOptions = 
       logger.setLevel('debug');
     }
 
+    // Validate command options first
+    const optionsValidation = validateOptions(options as Record<string, unknown>);
+    if (!optionsValidation.isValid) {
+      displayValidationErrors(optionsValidation.errors);
+      process.exit(1);
+    }
+
     const config = await configManager.load();
 
     if (!prompt && !options.file) {
-      throw new Error('Please provide a prompt or use --file option');
+      console.log(pc.red(`${symbols.cross} Please provide a prompt or use --file option`));
+      console.log(pc.dim(`${symbols.info} Example: promptboost "Explain quantum computing"`));
+      console.log(pc.dim(`${symbols.info} Or use: promptboost --file my-prompt.txt`));
+      process.exit(1);
     }
 
     let inputPrompt = prompt;
     if (options.file) {
       try {
         inputPrompt = readFileSync(options.file, 'utf-8').trim();
+        console.log(pc.dim(`${symbols.info} Loaded prompt from: ${options.file}`));
       } catch (error) {
-        throw new Error(`Failed to read file: ${options.file}`);
+        console.log(pc.red(`${symbols.cross} Failed to read file: ${options.file}`));
+        if (error instanceof Error) {
+          console.log(pc.dim(`${symbols.error} ${error.message}`));
+        }
+        process.exit(1);
       }
     }
 
     if (!inputPrompt) {
-      throw new Error('Prompt cannot be empty');
+      console.log(pc.red(`${symbols.cross} Prompt cannot be empty`));
+      console.log(pc.dim(`${symbols.info} Provide a meaningful prompt describing your request`));
+      process.exit(1);
+    }
+
+    // Validate the prompt content
+    const promptValidation = validatePrompt(inputPrompt);
+    if (!promptValidation.isValid) {
+      displayValidationErrors(promptValidation.errors);
+      console.log(
+        pc.dim(
+          `${symbols.info} Your prompt: "${inputPrompt.substring(0, 50)}${inputPrompt.length > 50 ? '...' : ''}"`,
+        ),
+      );
+      process.exit(1);
+    }
+
+    // Show validation success for verbose mode
+    if (options.verbose) {
+      console.log(pc.green(`${symbols.check} Prompt validation passed`));
+      console.log(pc.dim(`${symbols.info} Prompt length: ${inputPrompt.length} characters`));
     }
 
     const providerName = options.provider || config.defaultProvider;
     const provider = await configManager.getProvider(providerName);
 
     if (!provider) {
-      throw new Error(`Provider not found: ${providerName}`);
+      console.log(pc.red(`${symbols.cross} Provider not found: ${providerName}`));
+      console.log(pc.dim(`${symbols.info} Available providers: openai, anthropic, grok, google`));
+      process.exit(1);
     }
 
     if (!provider.enabled || !provider.apiKey) {
-      throw new Error(
-        `Provider ${providerName} is not configured. Run: promptboost config set --provider ${providerName} --key your-api-key`,
+      console.log(pc.red(`${symbols.cross} Provider ${providerName} is not configured`));
+      console.log();
+      console.log(pc.cyan('📝 To set up a provider, choose one of these options:'));
+      console.log();
+      console.log(pc.dim('• OpenAI (GPT models):'));
+      console.log('  promptboost config set --provider openai --key YOUR_OPENAI_API_KEY');
+      console.log();
+      console.log(pc.dim('• Anthropic (Claude models):'));
+      console.log('  promptboost config set --provider anthropic --key YOUR_ANTHROPIC_API_KEY');
+      console.log();
+      console.log(pc.dim('• xAI (Grok models):'));
+      console.log('  promptboost config set --provider grok --key YOUR_XAI_API_KEY');
+      console.log();
+      console.log(pc.dim('• Google (Gemini models):'));
+      console.log('  promptboost config set --provider google --key YOUR_GOOGLE_API_KEY');
+      console.log();
+      console.log(
+        pc.yellow(
+          `${symbols.lightbulb} The first provider you configure will become your default!`,
+        ),
       );
+      process.exit(1);
     }
 
     const providerInstance = createProvider(provider);

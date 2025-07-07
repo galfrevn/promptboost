@@ -8,12 +8,22 @@ import { symbols } from '@/utils/symbols.js';
 import { Command } from 'commander';
 import pc from 'picocolors';
 
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// Get package.json version dynamically
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const packageJsonPath = join(__dirname, '../package.json');
+const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
+
 const program = new Command();
 
 program
   .name('promptboost')
   .description('CLI tool that enhances prompts using AI providers')
-  .version('1.0.0');
+  .version(packageJson.version);
 
 program
   .argument('[prompt]', 'The prompt to enhance')
