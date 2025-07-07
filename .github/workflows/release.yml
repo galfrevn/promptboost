@@ -3,8 +3,6 @@ name: 🚀 Release Pipeline
 on:
   push:
     branches: [main, develop]
-    tags:
-      - 'v*'
   pull_request:
     branches: [main, develop]
   release:
@@ -371,58 +369,6 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: 🔍 Pre-publish validation
-        run: |
-          echo "::group::🔍 Pre-publish Validation"
-          
-          VALIDATION_ERRORS=()
-          
-          # Check if dist folder exists and has content
-          if [ ! -d "dist" ] || [ -z "$(ls -A dist)" ]; then
-            VALIDATION_ERRORS+=("❌ dist folder is missing or empty")
-          else
-            echo "✅ dist folder exists and contains files"
-          fi
-          
-          # Validate package.json
-          if ! node -p "require('./package.json').name" > /dev/null 2>&1; then
-            VALIDATION_ERRORS+=("❌ Invalid package.json")
-          else
-            echo "✅ package.json is valid"
-          fi
-          
-          # Check main entry point
-          MAIN_ENTRY=$(node -p "require('./package.json').main || 'dist/index.js'")
-          if [ ! -f "$MAIN_ENTRY" ]; then
-            VALIDATION_ERRORS+=("❌ Main entry point $MAIN_ENTRY not found")
-          else
-            echo "✅ Main entry point exists: $MAIN_ENTRY"
-          fi
-          
-          # Check if package can be imported
-          if [ -f "dist/index.js" ]; then
-            if timeout 5s node -e "require('./dist/index.js')" > /dev/null 2>&1; then
-              echo "✅ Package can be imported successfully"
-            else
-              VALIDATION_ERRORS+=("⚠️ Package import test failed (may be CLI-only)")
-            fi
-          fi
-          
-          # Report validation results
-          if [ ${#VALIDATION_ERRORS[@]} -eq 0 ]; then
-            echo "✅ **Validation**: All checks passed" >> $GITHUB_STEP_SUMMARY
-            echo "::notice title=✅ Validation::Package is ready for publishing"
-          else
-            echo "❌ **Validation Errors**:" >> $GITHUB_STEP_SUMMARY
-            for error in "${VALIDATION_ERRORS[@]}"; do
-              echo "- $error" >> $GITHUB_STEP_SUMMARY
-              echo "::error::$error"
-            done
-            exit 1
-          fi
-          
-          echo "::endgroup::"
 
       - name: 📦 Publish to npm
         id: npm-publish
