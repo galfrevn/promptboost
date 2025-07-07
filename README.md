@@ -1,14 +1,15 @@
-# ![PromptBoost CLI](https://raw.githubusercontent.com/galfrevn/promptboost/main/public/logo.png)
+<img src="https://raw.githubusercontent.com/galfrevn/promptboost/main/public/logo.png" width=80 alt="PromptBoost CLI Demo" />
+
 
 > AI-Powered Prompt Enhancement Tool - Intelligent and Extensible
 
 [![github release version](https://img.shields.io/github/v/release/galfrevn/promptboost.svg?include_prereleases)](https://github.com/galfrevn/promptboost/releases/latest) [![npm version](https://img.shields.io/npm/v/promptboost.svg)](https://www.npmjs.com/package/promptboost) [![license](https://img.shields.io/github/license/galfrevn/promptboost.svg)](https://github.com/galfrevn/promptboost/blob/main/LICENSE) [![PRs welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg)](https://github.com/galfrevn/promptboost/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) [![code with hearth by galfrevn](https://img.shields.io/badge/%3C%2F%3E%20with%20%E2%99%A5%20by-galfrevn-ff1414.svg)](https://github.com/galfrevn)
 
-<img src="https://raw.githubusercontent.com/galfrevn/promptboost/main/assets/demo.gif" alt="PromptBoost CLI Demo" />
+<img src="https://github.com/galfrevn/promptboost/blob/4273fad58e9403fda01d9b3569ef51c877b603ba/public/1.gif" alt="PromptBoost CLI Demo" />
 
 A powerful command-line tool that enhances prompts using AI providers to optimize interactions with terminal agents like Claude Code, Gemini CLI, OpenAI Code, and more.
 
-## � Table of Contents
+## 📝 Table of Contents
 
 - [Providers](#-providers)
 - [Why PromptBoost CLI?](#-why-promptboost-cli)
@@ -47,7 +48,7 @@ PromptBoost CLI provides **intelligent prompt enhancement** across multiple AI p
 
 ### Intelligent Prompt Enhancement
 
-![prompt-enhancement](https://raw.githubusercontent.com/galfrevn/promptboost/main/assets/enhancement-demo.png)
+![prompt-enhancement](https://github.com/galfrevn/promptboost/blob/4273fad58e9403fda01d9b3569ef51c877b603ba/public/2.gif)
 
 **Smart Context Addition**
 
@@ -60,8 +61,6 @@ PromptBoost doesn't just pass your prompts through—it enhances them with:
 
 ### Multi-Provider Intelligence
 
-![multi-provider](https://raw.githubusercontent.com/galfrevn/promptboost/main/assets/providers.png)
-
 * **Provider Switching**: Seamlessly switch between OpenAI, Anthropic, Google, and xAI
 * **Model Validation**: Automatic validation of model names and capabilities
 * **Streaming Support**: Real-time response streaming with compatibility checking
@@ -69,7 +68,7 @@ PromptBoost doesn't just pass your prompts through—it enhances them with:
 
 ### Developer-Friendly Features
 
-![developer-features](https://raw.githubusercontent.com/galfrevn/promptboost/main/assets/dev-features.png)
+![developer-features](https://github.com/galfrevn/promptboost/blob/4273fad58e9403fda01d9b3569ef51c877b603ba/public/3.gif)
 
 * **File Integration**: Read prompts from files, save enhanced results
 * **Template System**: Built-in templates for common use cases
@@ -88,6 +87,8 @@ PromptBoost doesn't just pass your prompts through—it enhances them with:
 * **Error Recovery**: Robust retry logic with exponential backoff
 * **Beautiful CLI**: Colorized output with progress indicators and clear formatting
 * **Developer Tools**: Verbose logging, testing utilities, and debugging features
+
+![developer-features](https://github.com/galfrevn/promptboost/blob/4273fad58e9403fda01d9b3569ef51c877b603ba/public/4.gif)
 
 ## 🐾 Examples
 
@@ -125,8 +126,6 @@ promptboost config set --provider openai --model invalid-model
   • Model 'invalid-model' is not valid for provider 'openai'
   • Valid models for openai: gpt-4o, gpt-4o-mini, gpt-4-turbo...
 ```
-
-More [examples and tutorials](https://github.com/galfrevn/promptboost/tree/main/examples) are available!
 
 ## 📦 Installation
 
