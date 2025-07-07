@@ -4,8 +4,29 @@ import { configManager } from '@/utils/config.js';
 import { logger } from '@/utils/logger.js';
 import { ProviderFactory } from '@/providers/index.js';
 import pc from 'picocolors';
+import spinners from 'cli-spinners';
+import clipboard from 'clipboardy';
 
 export async function enhanceCommand(prompt?: string, options: CommandOptions = {}) {
+  let spinnerInterval: NodeJS.Timeout | undefined;
+
+  const startSpinner = (text: string) => {
+    const spinner = spinners.dots;
+    let i = 0;
+    process.stdout.write('\n');
+    spinnerInterval = setInterval(() => {
+      const { frames } = spinner;
+      process.stdout.write(`\r${frames[(i = ++i % frames.length)]} ${text}`);
+    }, spinner.interval);
+  };
+
+  const stopSpinner = () => {
+    if (spinnerInterval) {
+      clearInterval(spinnerInterval);
+      process.stdout.write('\r');
+    }
+  };
+
   try {
     if (options.verbose) {
       logger.setLevel('debug');
@@ -43,40 +64,57 @@ export async function enhanceCommand(prompt?: string, options: CommandOptions = 
       );
     }
 
-    console.log(pc.cyan('🚀 Enhancing prompt...'));
-    console.log(pc.gray(`✓ Using ${provider.name} (${provider.model})`));
-
     const providerInstance = ProviderFactory.create(provider);
 
     const enhanceRequest = {
       prompt: inputPrompt,
       provider: providerName,
-      template: options.template,
       options: {
         format: options.format,
         verbose: options.verbose,
+        stream: options.stream,
+        mode: options.mode,
       },
     };
 
-    const response = await providerInstance.enhance(enhanceRequest);
+    let response: any;
 
-    console.log(pc.green('✓ Enhanced prompt ready!\n'));
+    if (options.stream) {
+      console.log(pc.cyan('\n🚀 Enhancing prompt (streaming)...\n'));
+      response = await providerInstance.enhanceStream(enhanceRequest, (chunk: string) => {
+        process.stdout.write(chunk);
+      });
 
-    if (options.format === 'plain') {
-      console.log(response.enhanced);
+      console.log('\n');
+
+      if (options.format === 'markdown') {
+        console.log(
+          pc.dim(`\n📊 Stats: ${response.tokensUsed} tokens used | ${response.responseTime}ms response time`),
+        );
+        console.log(pc.dim('💡 Tip: Use --copy to copy enhanced prompt to clipboard'));
+      }
     } else {
-      console.log(pc.bold('📝 Original:'));
-      console.log(pc.gray(`"${response.original}"\n`));
+      startSpinner(pc.cyan('Enhancing prompt...'));
+      response = await providerInstance.enhance(enhanceRequest);
+      stopSpinner();
+      console.log(pc.green('✓ Enhanced prompt ready!\n'));
 
-      console.log(pc.bold('✨ Enhanced:'));
-      console.log(`"${response.enhanced}"\n`);
+      if (options.format === 'plain') {
+        console.log(response.enhanced);
+      } else {
+        console.log(pc.bold('📝 Original:'));
+        console.log(pc.gray(`"${response.original}"\n`));
 
-      console.log(
-        pc.dim(
-          `📊 Stats: ${response.tokensUsed} tokens used | ${response.responseTime}ms response time`,
-        ),
-      );
-      console.log(pc.dim('💡 Tip: Use --copy to copy enhanced prompt to clipboard'));
+        console.log(pc.bold('✨ Enhanced:'));
+        console.log(`"${response.enhanced}"\n`);
+
+        console.log(
+          pc.dim(
+            `📊 Stats: ${response.tokensUsed} tokens used | ${response.responseTime}ms response time`,
+          ),
+        );
+        console.log(pc.dim('💡 Tip: Use --copy to copy enhanced prompt to clipboard'));
+      }
     }
 
     if (options.output) {
@@ -90,15 +128,17 @@ export async function enhanceCommand(prompt?: string, options: CommandOptions = 
 
     if (options.copy) {
       try {
-        // Note: Clipboard functionality would need a library like 'clipboardy'
-        console.log(pc.yellow('📋 Clipboard functionality not implemented yet'));
+        await clipboard.write(response.enhanced);
+        console.log("")
+        console.log(pc.green('✓ Enhanced prompt copied to clipboard'));
       } catch (error) {
         console.error(pc.red(`Failed to copy to clipboard: ${error}`));
       }
     }
   } catch (error) {
+    stopSpinner();
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(pc.red('❌ Error:'), errorMessage);
+    console.error(pc.red('\n❌ Error:'), errorMessage);
 
     if (errorMessage.includes('API key not configured')) {
       console.log(
