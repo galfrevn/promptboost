@@ -58,8 +58,8 @@ export class ProviderError extends Error {
   constructor(
     message: string,
     provider: string,
-    code: string,
-    retryable: false,
+    code?: string,
+    retryable?: boolean,
     statusCode?: number,
   ) {
     super(message);
@@ -123,4 +123,80 @@ export interface Logger {
   info(message: string, meta?: unknown): void;
   warn(message: string, meta?: unknown): void;
   error(message: string, meta?: unknown): void;
+}
+
+// API Response Types
+export interface AnthropicResponse {
+  content: Array<{
+    text: string;
+    type: string;
+  }>;
+  usage?: {
+    input_tokens: number;
+    output_tokens: number;
+  };
+}
+
+export interface OpenAIResponse {
+  choices: Array<{
+    message: {
+      content: string;
+      role: string;
+    };
+    finish_reason: string;
+  }>;
+  usage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+}
+
+export interface GoogleResponse {
+  candidates: Array<{
+    content: {
+      parts: Array<{
+        text: string;
+      }>;
+    };
+  }>;
+  usageMetadata?: {
+    promptTokenCount: number;
+    candidatesTokenCount: number;
+    totalTokenCount: number;
+  };
+}
+
+export interface GrokResponse {
+  choices: Array<{
+    message: {
+      content: string;
+      role: string;
+    };
+    finish_reason: string;
+  }>;
+  usage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+}
+
+export interface ErrorResponse {
+  error?: {
+    message?: string;
+    code?: string;
+  };
+  message?: string;
+  code?: string;
+}
+
+export interface OpenAIStreamChunk {
+  choices: Array<{
+    delta: {
+      content?: string;
+      role?: string;
+    };
+    finish_reason?: string;
+  }>;
 }

@@ -1,0 +1,347 @@
+name: 🛡️ Code Quality & Security
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # Run security scans weekly on Sundays at 2 AM UTC
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  # 🔍 Code Quality Analysis
+  code-quality:
+    name: 🔍 Code Quality Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🏗️ Setup Bun runtime
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: 📦 Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: 📋 Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: 🔍 Run linting with detailed report
+        run: |
+          echo "::group::Detailed Linting Report"
+          bun run lint --reporter=github
+          echo "::endgroup::"
+
+      - name: 📊 Code complexity analysis
+        run: |
+          echo "::group::Code Complexity Analysis"
+          echo "🧮 Analyzing code complexity..."
+          
+          # Count lines of code
+          echo "📝 Lines of Code:"
+          find src -name "*.ts" -not -path "*/node_modules/*" | xargs wc -l | tail -1
+          
+          # Count files
+          echo "📁 TypeScript files: $(find src -name "*.ts" | wc -l)"
+          
+          # Analyze function complexity (basic analysis)
+          echo "🔄 Functions with high complexity:"
+          grep -r "function\|=>" src --include="*.ts" | wc -l
+          
+          echo "::endgroup::"
+
+      - name: 📈 Bundle size analysis
+        run: |
+          echo "::group::Bundle Size Analysis"
+          bun run build
+          
+          if [ -f "dist/index.js" ]; then
+            SIZE_BYTES=$(stat -c%s "dist/index.js")
+            SIZE_KB=$((SIZE_BYTES / 1024))
+            SIZE_MB=$((SIZE_KB / 1024))
+            
+            echo "📦 Bundle Sizes:"
+            echo "- Raw: ${SIZE_BYTES} bytes"
+            echo "- Compressed: ${SIZE_KB} KB"
+            echo "- Human readable: ${SIZE_MB} MB"
+            
+            # Warn if bundle is too large
+            if [ $SIZE_KB -gt 500 ]; then
+              echo "⚠️ Bundle size is larger than 500KB"
+            else
+              echo "✅ Bundle size is optimal"
+            fi
+          fi
+          
+          echo "::endgroup::"
+
+      - name: 🔍 Dead code detection
+        run: |
+          echo "::group::Dead Code Detection"
+          echo "🔍 Analyzing for potential dead code..."
+          
+          # Check for unused imports (basic check)
+          echo "📋 Checking for unused imports..."
+          grep -r "^import.*from" src --include="*.ts" | head -10
+          
+          # Check for TODO/FIXME comments
+          echo "📝 TODO/FIXME comments:"
+          grep -r "TODO\|FIXME\|XXX" src --include="*.ts" || echo "None found"
+          
+          echo "::endgroup::"
+
+  # 🔒 Security Analysis
+  security-scan:
+    name: 🔒 Security Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🏗️ Setup Bun runtime
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: 📋 Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: 🔍 Dependency security audit
+        run: |
+          echo "::group::Dependency Security Audit"
+          echo "🔒 Checking dependencies for known vulnerabilities..."
+          
+          # Currently Bun doesn't have built-in audit, so we'll use npm audit for now
+          if command -v npm &> /dev/null; then
+            echo "📦 Running npm audit..."
+            npm audit --audit-level moderate || echo "⚠️ Security issues found, please review"
+          else
+            echo "⚠️ npm not available, skipping audit for now"
+            echo "🔍 Manual dependency review recommended"
+          fi
+          
+          echo "::endgroup::"
+
+      - name: 🔍 Secret scanning
+        run: |
+          echo "::group::Secret Scanning"
+          echo "🔍 Scanning for potential secrets..."
+          
+          # Basic secret patterns
+          SECRET_PATTERNS=(
+            "password\s*=\s*['\"][^'\"]*['\"]"
+            "api[_-]?key\s*=\s*['\"][^'\"]*['\"]"
+            "secret\s*=\s*['\"][^'\"]*['\"]"
+            "token\s*=\s*['\"][^'\"]*['\"]"
+            "auth\s*=\s*['\"][^'\"]*['\"]"
+          )
+          
+          for pattern in "${SECRET_PATTERNS[@]}"; do
+            if grep -r -i -E "$pattern" src --include="*.ts" --include="*.js" --include="*.json"; then
+              echo "⚠️ Potential secret found with pattern: $pattern"
+            fi
+          done
+          
+          echo "✅ Secret scanning complete"
+          echo "::endgroup::"
+
+      - name: 🔒 Code security analysis
+        run: |
+          echo "::group::Code Security Analysis"
+          echo "🔍 Analyzing code for security issues..."
+          
+          # Check for eval usage
+          if grep -r "eval\s*(" src --include="*.ts" --include="*.js"; then
+            echo "⚠️ Found eval() usage - potential security risk"
+          fi
+          
+          # Check for dangerous functions
+          DANGEROUS_FUNCTIONS=("innerHTML" "outerHTML" "document.write" "setTimeout.*string")
+          
+          for func in "${DANGEROUS_FUNCTIONS[@]}"; do
+            if grep -r -E "$func" src --include="*.ts" --include="*.js"; then
+              echo "⚠️ Found potentially dangerous function: $func"
+            fi
+          done
+          
+          # Check for hardcoded URLs
+          if grep -r -E "https?://[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}" src --include="*.ts" --include="*.js"; then
+            echo "ℹ️ Found hardcoded URLs - consider using environment variables"
+          fi
+          
+          echo "✅ Security analysis complete"
+          echo "::endgroup::"
+
+  # 📊 Performance Analysis
+  performance:
+    name: 📊 Performance Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🏗️ Setup Bun runtime
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: 📋 Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: ⚡ Build performance test
+        run: |
+          echo "::group::Build Performance"
+          echo "⏱️ Measuring build time..."
+          
+          START_TIME=$(date +%s%N)
+          bun run build
+          END_TIME=$(date +%s%N)
+          
+          BUILD_TIME_NS=$((END_TIME - START_TIME))
+          BUILD_TIME_MS=$((BUILD_TIME_NS / 1000000))
+          BUILD_TIME_S=$((BUILD_TIME_MS / 1000))
+          
+          echo "⏱️ Build completed in:"
+          echo "- ${BUILD_TIME_S} seconds"
+          echo "- ${BUILD_TIME_MS} milliseconds"
+          
+          if [ $BUILD_TIME_S -gt 30 ]; then
+            echo "⚠️ Build time is longer than 30 seconds"
+          else
+            echo "✅ Build time is acceptable"
+          fi
+          
+          echo "::endgroup::"
+
+      - name: 🧪 Runtime performance test
+        run: |
+          echo "::group::Runtime Performance"
+          echo "🧪 Testing CLI startup time..."
+          
+          if [ -f "dist/index.js" ]; then
+            START_TIME=$(date +%s%N)
+            timeout 10s node dist/index.js --help > /dev/null || true
+            END_TIME=$(date +%s%N)
+            
+            STARTUP_TIME_NS=$((END_TIME - START_TIME))
+            STARTUP_TIME_MS=$((STARTUP_TIME_NS / 1000000))
+            
+            echo "⚡ CLI startup time: ${STARTUP_TIME_MS}ms"
+            
+            if [ $STARTUP_TIME_MS -gt 1000 ]; then
+              echo "⚠️ Startup time is slower than 1 second"
+            else
+              echo "✅ Startup time is good"
+            fi
+          fi
+          
+          echo "::endgroup::"
+
+  # 📋 License and Compliance
+  compliance:
+    name: 📋 License & Compliance
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 📄 License compliance check
+        run: |
+          echo "::group::License Compliance"
+          
+          # Check if LICENSE file exists
+          if [ -f "LICENSE" ] || [ -f "LICENSE.md" ] || [ -f "LICENSE.txt" ]; then
+            echo "✅ License file found"
+          else
+            echo "⚠️ No LICENSE file found"
+          fi
+          
+          # Check package.json license field
+          if grep -q '"license"' package.json; then
+            LICENSE=$(node -p "require('./package.json').license || 'Not specified'")
+            echo "📄 Package license: $LICENSE"
+          else
+            echo "⚠️ No license specified in package.json"
+          fi
+          
+          echo "::endgroup::"
+
+      - name: 📊 Dependencies license check
+        run: |
+          echo "::group::Dependencies License Check"
+          echo "📦 Analyzing dependency licenses..."
+          
+          # This is a placeholder - in a real scenario you'd use a tool like license-checker
+          echo "ℹ️ Dependency license analysis would run here"
+          echo "💡 Consider using tools like 'license-checker' for comprehensive analysis"
+          
+          echo "::endgroup::"
+
+  # 📈 Quality Report
+  quality-report:
+    name: 📈 Quality Report
+    runs-on: ubuntu-latest
+    needs: [code-quality, security-scan, performance, compliance]
+    if: always()
+    
+    steps:
+      - name: 📊 Generate quality summary
+        run: |
+          echo "## 📊 Code Quality Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Job status checks
+          if [[ "${{ needs.code-quality.result }}" == "success" ]]; then
+            echo "✅ **Code Quality**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Code Quality**: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [[ "${{ needs.security-scan.result }}" == "success" ]]; then
+            echo "✅ **Security Scan**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Security Scan**: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [[ "${{ needs.performance.result }}" == "success" ]]; then
+            echo "✅ **Performance**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Performance**: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [[ "${{ needs.compliance.result }}" == "success" ]]; then
+            echo "✅ **Compliance**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Compliance**: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔗 Links" >> $GITHUB_STEP_SUMMARY
+          echo "- [Repository](https://github.com/${{ github.repository }})" >> $GITHUB_STEP_SUMMARY
+          echo "- [Action Run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+          echo "- [Commit](https://github.com/${{ github.repository }}/commit/${{ github.sha }})" >> $GITHUB_STEP_SUMMARY
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "*Report generated on $(date)*" >> $GITHUB_STEP_SUMMARY

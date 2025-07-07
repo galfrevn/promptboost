@@ -1,10 +1,11 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 
-import { Command } from 'commander';
+import { removeConfig, setConfig, showConfig } from '@/commands/config.js';
 import { enhanceCommand } from '@/commands/enhance.js';
-import { showConfig, setConfig, removeConfig } from '@/commands/config.js';
 import { testCommand } from '@/commands/test.js';
 import { logger } from '@/utils/logger.js';
+import { symbols } from '@/utils/symbols.js';
+import { Command } from 'commander';
 import pc from 'picocolors';
 
 const program = new Command();
@@ -28,10 +29,7 @@ program
 
 const config = program.command('config').description('Manage configuration');
 
-config
-  .command('show')
-  .description('Display current configuration')
-  .action(showConfig);
+config.command('show').description('Display current configuration').action(showConfig);
 
 config
   .command('set')
@@ -65,10 +63,10 @@ program
   .description('List available providers')
   .action(() => {
     console.log(pc.cyan('Available providers:'));
-    console.log('• openai    - OpenAI GPT models');
-    console.log('• anthropic - Anthropic Claude models');
-    console.log('• grok      - xAI Grok models');
-    console.log('• google    - Google Gemini models');
+    console.log(`${symbols.bullet} openai    - OpenAI GPT models`);
+    console.log(`${symbols.bullet} anthropic - Anthropic Claude models`);
+    console.log(`${symbols.bullet} grok      - xAI Grok models`);
+    console.log(`${symbols.bullet} google    - Google Gemini models`);
   });
 
 program.parseAsync(process.argv).catch((error) => {

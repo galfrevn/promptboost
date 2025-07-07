@@ -1,6 +1,6 @@
-import { BaseProvider } from './base.js';
-import type { EnhanceRequest, EnhanceResponse } from '@/types/index.js';
+import type { AnthropicResponse, EnhanceRequest, EnhanceResponse } from '@/types/index.js';
 import { logger } from '@/utils/logger.js';
+import { BaseProvider } from './base.js';
 
 export class AnthropicProvider extends BaseProvider {
   async enhance(request: EnhanceRequest): Promise<EnhanceResponse> {
@@ -33,7 +33,7 @@ export class AnthropicProvider extends BaseProvider {
       body: JSON.stringify(requestBody),
     });
 
-    const data = await response.json();
+    const data = (await response.json()) as AnthropicResponse;
 
     if (!data.content || !data.content[0]?.text) {
       throw this.createError('Invalid response from Anthropic API');
@@ -42,8 +42,8 @@ export class AnthropicProvider extends BaseProvider {
     const enhanced = data.content[0].text.trim();
     const tokensUsed = data.usage?.output_tokens || this.countTokens(enhanced);
 
-    console.log("")
-    console.log("")
+    console.log('');
+    console.log('');
     logger.info('Anthropic enhancement completed', {
       tokens_used: tokensUsed,
       response_time: Date.now() - startTime,
@@ -53,8 +53,9 @@ export class AnthropicProvider extends BaseProvider {
   }
 
   private buildSystemPrompt(mode?: 'sm' | 'md' | 'lg'): string {
-    const basePrompt = 'You are a prompt optimization expert. Your task is to improve the given prompt to make it more effective, specific, and clear.';
-    
+    const basePrompt =
+      'You are a prompt optimization expert. Your task is to improve the given prompt to make it more effective, specific, and clear.';
+
     switch (mode) {
       case 'sm':
         return `${basePrompt} Provide a quick, simple enhancement with 1-2 key improvements. Keep it concise and focused. Return only the enhanced prompt without any additional explanation.`;
@@ -73,19 +74,24 @@ Return only the enhanced prompt without any additional explanation.`;
     }
   }
 
-  async enhanceStream(request: EnhanceRequest, onChunk: (chunk: string) => void): Promise<EnhanceResponse> {
+  async enhanceStream(
+    request: EnhanceRequest,
+    onChunk: (chunk: string) => void,
+  ): Promise<EnhanceResponse> {
     // Anthropic streaming implementation would go here
     // For now, fallback to regular enhance and simulate streaming
     const response = await this.enhance(request);
-    
+
     // Simulate streaming by outputting the result in chunks
     const words = response.enhanced.split(' ');
     for (let i = 0; i < words.length; i++) {
-      const chunk = i === 0 ? words[i] : ' ' + words[i];
-      onChunk(chunk);
+      const chunk = i === 0 ? words[i] : ` ${words[i]}`;
+      if (chunk) {
+        onChunk(chunk);
+      }
       await this.delay(50); // Small delay to simulate streaming
     }
-    
+
     return response;
   }
 

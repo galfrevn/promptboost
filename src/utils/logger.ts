@@ -1,4 +1,4 @@
-import type { Logger, LogLevel } from '@/types/index.js';
+import type { LogLevel, Logger } from '@/types/index.js';
 import pc from 'picocolors';
 
 export class ConsoleLogger implements Logger {

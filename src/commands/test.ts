@@ -1,6 +1,7 @@
+import { createProvider } from '@/providers/index.js';
+import type { Provider, TestResult } from '@/types/index.js';
 import { configManager } from '@/utils/config.js';
-import { ProviderFactory } from '@/providers/index.js';
-import type { TestResult } from '@/types/index.js';
+import { symbols } from '@/utils/symbols.js';
 import pc from 'picocolors';
 
 export async function testCommand(options: { provider?: string } = {}) {
@@ -14,25 +15,25 @@ export async function testCommand(options: { provider?: string } = {}) {
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(pc.red('❌ Test failed:'), errorMessage);
+    console.error(pc.red(`${symbols.error} Test failed:`), errorMessage);
     process.exit(1);
   }
 }
 
 async function testSingleProvider(providerName: string) {
-  console.log(pc.cyan(`🧪 Testing provider: ${providerName}\n`));
+  console.log(pc.cyan(`${symbols.test} Testing provider: ${providerName}\n`));
 
   const provider = await configManager.getProvider(providerName);
 
   if (!provider) {
-    console.error(pc.red(`❌ Provider not found: ${providerName}`));
+    console.error(pc.red(`${symbols.error} Provider not found: ${providerName}`));
     return;
   }
 
   if (!provider.enabled || !provider.apiKey) {
-    console.error(pc.red(`❌ Provider ${providerName} is not configured`));
+    console.error(pc.red(`${symbols.error} Provider ${providerName} is not configured`));
     console.log(
-      pc.yellow('💡 Run:'),
+      pc.yellow(`${symbols.lightbulb} Run:`),
       `promptboost config set --provider ${providerName} --key your-api-key`,
     );
     return;
@@ -43,12 +44,12 @@ async function testSingleProvider(providerName: string) {
 }
 
 async function testAllProviders() {
-  console.log(pc.cyan('🧪 Testing all configured providers\n'));
+  console.log(pc.cyan(`${symbols.test} Testing all configured providers\n`));
 
   const enabledProviders = await configManager.getEnabledProviders();
 
   if (enabledProviders.length === 0) {
-    console.log(pc.yellow('⚠️  No providers are configured'));
+    console.log(pc.yellow(`${symbols.warning} No providers are configured`));
     console.log(pc.gray('Configure a provider first:'));
     console.log(pc.gray('  promptboost config set --provider openai --key your-api-key'));
     return;
@@ -69,7 +70,7 @@ async function testAllProviders() {
     }
   }
 
-  console.log('\n' + pc.bold('Test Results:'));
+  console.log(`\n${pc.bold('Test Results:')}`);
   results.forEach(displayTestResult);
 
   const successCount = results.filter((r) => r.success).length;
@@ -82,11 +83,11 @@ async function testAllProviders() {
   }
 }
 
-async function runProviderTest(provider: any): Promise<TestResult> {
+async function runProviderTest(provider: Provider): Promise<TestResult> {
   const startTime = Date.now();
 
   try {
-    const providerInstance = ProviderFactory.create(provider);
+    const providerInstance = createProvider(provider);
     const success = await providerInstance.test();
 
     return {

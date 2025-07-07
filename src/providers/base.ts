@@ -1,17 +1,18 @@
 import type {
-  Provider,
+  APIResponse,
+  EnhanceOptions,
   EnhanceRequest,
   EnhanceResponse,
-  EnhanceOptions,
-  APIResponse,
+  ErrorResponse,
+  Provider,
 } from '@/types/index.js';
 import { ProviderError } from '@/types/index.js';
 import { logger } from '@/utils/logger.js';
 
 export abstract class BaseProvider {
   protected provider: Provider;
-  protected retries: number = 3;
-  protected timeout: number = 30000;
+  protected retries = 3;
+  protected timeout = 30000;
 
   constructor(provider: Provider) {
     this.provider = provider;
@@ -20,7 +21,7 @@ export abstract class BaseProvider {
   protected async makeRequest(
     url: string,
     options: RequestInit,
-    retryCount: number = 0,
+    retryCount = 0,
   ): Promise<Response> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
@@ -42,7 +43,7 @@ export abstract class BaseProvider {
         const error = await this.handleAPIError(response);
 
         if (error.retryable && retryCount < this.retries) {
-          const delay = Math.pow(2, retryCount) * 1000;
+          const delay = 2 ** retryCount * 1000;
           logger.warn(`Request failed, retrying in ${delay}ms...`, {
             provider: this.provider.name,
             attempt: retryCount + 1,
@@ -63,7 +64,7 @@ export abstract class BaseProvider {
       }
 
       if (error instanceof ProviderError && error.retryable && retryCount < this.retries) {
-        const delay = Math.pow(2, retryCount) * 1000;
+        const delay = 2 ** retryCount * 1000;
         logger.warn(`Request failed, retrying in ${delay}ms...`, {
           provider: this.provider.name,
           attempt: retryCount + 1,
@@ -82,7 +83,7 @@ export abstract class BaseProvider {
     let retryable = false;
 
     try {
-      const errorData = await response.json();
+      const errorData = (await response.json()) as ErrorResponse;
       errorMessage = errorData.error?.message || errorData.message || errorMessage;
       errorCode = errorData.error?.code || errorData.code || errorCode;
     } catch {
@@ -99,8 +100,8 @@ export abstract class BaseProvider {
 
   protected createError(
     message: string,
-    code?: string,
-    retryable: boolean = false,
+    code = '',
+    retryable = false,
     statusCode?: number,
   ): ProviderError {
     return new ProviderError(message, this.provider.name, code, retryable, statusCode);
@@ -112,7 +113,7 @@ export abstract class BaseProvider {
 
   protected async handleStreamResponse(
     response: Response,
-    onChunk: (chunk: string) => void
+    onChunk: (chunk: string) => void,
   ): Promise<string> {
     const reader = response.body?.getReader();
     if (!reader) {
@@ -134,7 +135,7 @@ export abstract class BaseProvider {
           if (line.startsWith('data: ')) {
             const data = line.slice(6).trim();
             if (data === '[DONE]') continue;
-            
+
             try {
               const parsed = JSON.parse(data);
               const content = this.extractContentFromStreamChunk(parsed);
@@ -202,7 +203,10 @@ export abstract class BaseProvider {
 
   abstract enhance(request: EnhanceRequest): Promise<EnhanceResponse>;
 
-  abstract enhanceStream(request: EnhanceRequest, onChunk: (chunk: string) => void): Promise<EnhanceResponse>;
+  abstract enhanceStream(
+    request: EnhanceRequest,
+    onChunk: (chunk: string) => void,
+  ): Promise<EnhanceResponse>;
 
   abstract test(): Promise<boolean>;
 

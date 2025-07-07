@@ -1,0 +1,320 @@
+name: 🔍 Pull Request Validation
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main, develop]
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  # 📋 PR Information Validation
+  pr-validation:
+    name: 📋 PR Information Check
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🔍 Validate PR title
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = context.payload.pull_request.title;
+            const validPrefixes = ['feat:', 'fix:', 'docs:', 'style:', 'refactor:', 'test:', 'chore:', '⬆️', '✨', '🐛', '📚', '♻️', '🧪'];
+            
+            const hasValidPrefix = validPrefixes.some(prefix => 
+              title.toLowerCase().startsWith(prefix.toLowerCase())
+            );
+            
+            if (!hasValidPrefix) {
+              core.setFailed(`PR title should start with one of: ${validPrefixes.join(', ')}`);
+              
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body: `## 📋 PR Title Format Issue
+                
+Hey there! 👋 Thanks for your contribution!
+
+Your PR title doesn't follow our conventional format. Please update it to start with one of these prefixes:
+
+### 🏷️ Valid Prefixes:
+- \`feat:\` - New features
+- \`fix:\` - Bug fixes  
+- \`docs:\` - Documentation changes
+- \`style:\` - Code style changes
+- \`refactor:\` - Code refactoring
+- \`test:\` - Test additions/changes
+- \`chore:\` - Maintenance tasks
+
+### ✨ Examples:
+- \`feat: add new command for provider testing\`
+- \`fix: resolve Unicode symbol encoding issue\`
+- \`docs: update README with installation instructions\`
+
+Or use emojis:
+- \`✨ Add new feature\`
+- \`🐛 Fix bug\`
+- \`📚 Update docs\`
+
+This helps us generate better changelogs and understand changes quickly! 🚀`
+              });
+            } else {
+              console.log('✅ PR title format is valid');
+            }
+
+      - name: 📝 Check PR description
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.pull_request.body || '';
+            
+            if (body.length < 10) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body: `## 📝 PR Description Needed
+                
+Thanks for your PR! However, it looks like the description is quite short or missing.
+
+### 📋 Please add:
+- **What** changes were made
+- **Why** these changes were necessary  
+- **How** to test the changes
+- Any **breaking changes** or special considerations
+
+### 💡 Template:
+\`\`\`markdown
+## What
+Brief description of changes
+
+## Why  
+Explanation of the problem being solved
+
+## How to test
+Steps to verify the changes work
+
+## Checklist
+- [ ] Tests pass
+- [ ] Documentation updated
+- [ ] No breaking changes (or breaking changes documented)
+\`\`\`
+
+This helps reviewers understand your changes better! 🚀`
+              });
+            }
+
+      - name: 🏷️ Validate linked issues
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.pull_request.body || '';
+            const issueKeywords = ['closes', 'fixes', 'resolves', 'close', 'fix', 'resolve'];
+            const hasLinkedIssue = issueKeywords.some(keyword => 
+              body.toLowerCase().includes(`${keyword} #`) || 
+              body.toLowerCase().includes(`${keyword}:`)
+            );
+            
+            if (!hasLinkedIssue && !body.toLowerCase().includes('no issue')) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body: `## 🔗 Link Related Issues
+                
+It looks like this PR might not be linked to an issue. 
+
+### 💡 If this fixes an issue:
+Add one of these to your PR description:
+- \`Closes #123\`
+- \`Fixes #123\`
+- \`Resolves #123\`
+
+### 🆕 If this is a new feature/improvement:
+Consider adding:
+- \`No issue - [brief explanation]\`
+
+This helps us track changes and maintain our project better! 📊`
+              });
+            }
+
+  # 🧪 Quick Tests
+  quick-tests:
+    name: 🧪 Quick Validation Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🏗️ Setup Bun runtime
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: 📦 Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: 📋 Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: ⚡ Quick lint check
+        run: |
+          echo "::group::Quick Lint Check"
+          bun run lint
+          echo "✅ Linting passed"
+          echo "::endgroup::"
+
+      - name: 🔍 Quick type check
+        run: |
+          echo "::group::Quick Type Check"
+          bun run typecheck
+          echo "✅ Type checking passed"
+          echo "::endgroup::"
+
+      - name: 🏗️ Quick build test
+        run: |
+          echo "::group::Quick Build Test"
+          bun run build
+          echo "✅ Build succeeded"
+          echo "::endgroup::"
+
+      - name: 🧪 Smoke test
+        run: |
+          echo "::group::Smoke Test"
+          if [ -f "dist/index.js" ]; then
+            timeout 5s node dist/index.js --help > /dev/null
+            echo "✅ CLI runs successfully"
+          else
+            echo "❌ Build output not found"
+            exit 1
+          fi
+          echo "::endgroup::"
+
+  # 📊 Change Analysis
+  change-analysis:
+    name: 📊 Change Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 📊 Analyze changes
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { execSync } = require('child_process');
+            
+            // Get changed files
+            const changedFiles = execSync('git diff --name-only origin/main...HEAD', { encoding: 'utf8' })
+              .split('\n')
+              .filter(file => file.trim() !== '');
+            
+            console.log(`📁 Changed files (${changedFiles.length}):`);
+            changedFiles.forEach(file => console.log(`  - ${file}`));
+            
+            // Categorize changes
+            const categories = {
+              source: changedFiles.filter(f => f.startsWith('src/')),
+              tests: changedFiles.filter(f => f.includes('test') || f.includes('spec')),
+              docs: changedFiles.filter(f => f.endsWith('.md') || f.startsWith('docs/')),
+              config: changedFiles.filter(f => f.match(/\.(json|yml|yaml|toml)$/)),
+              workflows: changedFiles.filter(f => f.startsWith('.github/'))
+            };
+            
+            let summary = `## 📊 Change Analysis\n\n`;
+            summary += `**Total files changed:** ${changedFiles.length}\n\n`;
+            
+            Object.entries(categories).forEach(([category, files]) => {
+              if (files.length > 0) {
+                summary += `**${category.charAt(0).toUpperCase() + category.slice(1)}:** ${files.length} files\n`;
+              }
+            });
+            
+            // Check for significant changes
+            const hasSourceChanges = categories.source.length > 0;
+            const hasTestChanges = categories.tests.length > 0;
+            const hasWorkflowChanges = categories.workflows.length > 0;
+            
+            summary += `\n### 🎯 Impact Assessment\n`;
+            
+            if (hasSourceChanges && !hasTestChanges) {
+              summary += `⚠️ **Source code changed without test updates**\n`;
+            }
+            
+            if (hasWorkflowChanges) {
+              summary += `🔧 **Workflow changes detected** - Please review carefully\n`;
+            }
+            
+            if (categories.source.length === 0 && categories.docs.length > 0) {
+              summary += `📚 **Documentation-only changes** - Low risk\n`;
+            }
+            
+            // Add to job summary
+            core.summary.addRaw(summary);
+            await core.summary.write();
+            
+            // Comment on PR
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: summary
+            });
+
+  # ✅ PR Status Check
+  pr-status:
+    name: ✅ PR Status Summary
+    runs-on: ubuntu-latest
+    needs: [pr-validation, quick-tests, change-analysis]
+    if: always()
+    
+    steps:
+      - name: 📊 Overall status
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const jobs = {
+              'PR Validation': '${{ needs.pr-validation.result }}',
+              'Quick Tests': '${{ needs.quick-tests.result }}',
+              'Change Analysis': '${{ needs.change-analysis.result }}'
+            };
+            
+            let allPassed = true;
+            let summary = `## 🔍 PR Validation Summary\n\n`;
+            
+            Object.entries(jobs).forEach(([job, result]) => {
+              const icon = result === 'success' ? '✅' : result === 'failure' ? '❌' : '⚠️';
+              summary += `${icon} **${job}**: ${result}\n`;
+              if (result !== 'success') allPassed = false;
+            });
+            
+            if (allPassed) {
+              summary += `\n🎉 **All validation checks passed!** This PR is ready for review.\n`;
+            } else {
+              summary += `\n⚠️ **Some checks failed.** Please review and fix the issues above.\n`;
+            }
+            
+            // Add to job summary
+            core.summary.addRaw(summary);
+            await core.summary.write();
+            
+            if (!allPassed) {
+              core.setFailed('Some PR validation checks failed');
+            }

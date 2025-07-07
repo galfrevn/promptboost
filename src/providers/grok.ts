@@ -1,6 +1,6 @@
-import { BaseProvider } from './base.js';
-import type { EnhanceRequest, EnhanceResponse } from '@/types/index.js';
+import type { EnhanceRequest, EnhanceResponse, GrokResponse } from '@/types/index.js';
 import { logger } from '@/utils/logger.js';
+import { BaseProvider } from './base.js';
 
 export class GrokProvider extends BaseProvider {
   async enhance(request: EnhanceRequest): Promise<EnhanceResponse> {
@@ -34,7 +34,7 @@ export class GrokProvider extends BaseProvider {
       body: JSON.stringify(requestBody),
     });
 
-    const data = await response.json();
+    const data = (await response.json()) as GrokResponse;
 
     if (!data.choices || !data.choices[0]?.message?.content) {
       throw this.createError('Invalid response from Grok API');
@@ -43,8 +43,8 @@ export class GrokProvider extends BaseProvider {
     const enhanced = data.choices[0].message.content.trim();
     const tokensUsed = data.usage?.total_tokens || this.countTokens(request.prompt + enhanced);
 
-    console.log("")
-    console.log("")
+    console.log('');
+    console.log('');
     logger.info('Grok enhancement completed', {
       tokens_used: tokensUsed,
       response_time: Date.now() - startTime,
@@ -54,8 +54,9 @@ export class GrokProvider extends BaseProvider {
   }
 
   private buildSystemPrompt(mode?: 'sm' | 'md' | 'lg'): string {
-    const basePrompt = 'You are a prompt optimization expert. Your task is to improve the given prompt to make it more effective, specific, and clear.';
-    
+    const basePrompt =
+      'You are a prompt optimization expert. Your task is to improve the given prompt to make it more effective, specific, and clear.';
+
     switch (mode) {
       case 'sm':
         return `${basePrompt} Provide a quick, simple enhancement with 1-2 key improvements. Keep it concise and focused. Return only the enhanced prompt without any additional explanation.`;
@@ -74,18 +75,23 @@ Return only the enhanced prompt without any additional explanation.`;
     }
   }
 
-  async enhanceStream(request: EnhanceRequest, onChunk: (chunk: string) => void): Promise<EnhanceResponse> {
+  async enhanceStream(
+    request: EnhanceRequest,
+    onChunk: (chunk: string) => void,
+  ): Promise<EnhanceResponse> {
     // Grok streaming would be similar to OpenAI - for now, fallback to regular enhance
     const response = await this.enhance(request);
-    
+
     // Simulate streaming by outputting the result in chunks
     const words = response.enhanced.split(' ');
     for (let i = 0; i < words.length; i++) {
       const chunk = i === 0 ? words[i] : ` ${words[i]}`;
-      onChunk(chunk);
+      if (chunk) {
+        onChunk(chunk);
+      }
       await this.delay(50); // Small delay to simulate streaming
     }
-    
+
     return response;
   }
 

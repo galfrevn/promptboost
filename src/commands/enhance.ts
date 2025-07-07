@@ -1,11 +1,11 @@
 import { readFileSync, writeFileSync } from 'node:fs';
-import type { CommandOptions } from '@/types/index.js';
+import { createProvider } from '@/providers/index.js';
+import type { CommandOptions, EnhanceResponse } from '@/types/index.js';
 import { configManager } from '@/utils/config.js';
 import { logger } from '@/utils/logger.js';
-import { ProviderFactory } from '@/providers/index.js';
-import pc from 'picocolors';
 import spinners from 'cli-spinners';
 import clipboard from 'clipboardy';
+import pc from 'picocolors';
 
 export async function enhanceCommand(prompt?: string, options: CommandOptions = {}) {
   let spinnerInterval: NodeJS.Timeout | undefined;
@@ -16,7 +16,8 @@ export async function enhanceCommand(prompt?: string, options: CommandOptions = 
     process.stdout.write('\n');
     spinnerInterval = setInterval(() => {
       const { frames } = spinner;
-      process.stdout.write(`\r${frames[(i = ++i % frames.length)]} ${text}`);
+      i = (i + 1) % frames.length;
+      process.stdout.write(`\r${frames[i]} ${text}`);
     }, spinner.interval);
   };
 
@@ -64,7 +65,7 @@ export async function enhanceCommand(prompt?: string, options: CommandOptions = 
       );
     }
 
-    const providerInstance = ProviderFactory.create(provider);
+    const providerInstance = createProvider(provider);
 
     const enhanceRequest = {
       prompt: inputPrompt,
@@ -77,7 +78,7 @@ export async function enhanceCommand(prompt?: string, options: CommandOptions = 
       },
     };
 
-    let response: any;
+    let response: EnhanceResponse;
 
     if (options.stream) {
       console.log(pc.cyan('\n🚀 Enhancing prompt (streaming)...\n'));
@@ -89,7 +90,9 @@ export async function enhanceCommand(prompt?: string, options: CommandOptions = 
 
       if (options.format === 'markdown') {
         console.log(
-          pc.dim(`\n📊 Stats: ${response.tokensUsed} tokens used | ${response.responseTime}ms response time`),
+          pc.dim(
+            `\n📊 Stats: ${response.tokensUsed} tokens used | ${response.responseTime}ms response time`,
+          ),
         );
         console.log(pc.dim('💡 Tip: Use --copy to copy enhanced prompt to clipboard'));
       }
@@ -129,7 +132,7 @@ export async function enhanceCommand(prompt?: string, options: CommandOptions = 
     if (options.copy) {
       try {
         await clipboard.write(response.enhanced);
-        console.log("")
+        console.log('');
         console.log(pc.green('✓ Enhanced prompt copied to clipboard'));
       } catch (error) {
         console.error(pc.red(`Failed to copy to clipboard: ${error}`));

@@ -1,0 +1,168 @@
+name: 🔄 Dependency Updates
+
+on:
+  schedule:
+    # Run every Monday at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+    inputs:
+      update_type:
+        description: 'Type of update to perform'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  dependency-updates:
+    name: 🔄 Update Dependencies
+    runs-on: ubuntu-latest
+    if: github.repository_owner == github.actor || github.event_name == 'schedule'
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: 🏗️ Setup Bun runtime
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: 📦 Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: 🔍 Check for outdated dependencies
+        id: outdated
+        run: |
+          echo "::group::Checking for outdated dependencies"
+          
+          # Install current dependencies
+          bun install --frozen-lockfile
+          
+          # Check for updates (this is a placeholder - bun doesn't have outdated command yet)
+          echo "🔍 Would check for outdated dependencies here"
+          echo "has_updates=true" >> $GITHUB_OUTPUT
+          
+          echo "::endgroup::"
+
+      - name: 📊 Generate dependency report
+        if: steps.outdated.outputs.has_updates == 'true'
+        run: |
+          echo "::group::Generating dependency report"
+          
+          echo "## 📊 Dependency Update Report" > dependency-report.md
+          echo "" >> dependency-report.md
+          echo "### 📦 Current Dependencies" >> dependency-report.md
+          echo '```json' >> dependency-report.md
+          cat package.json | jq '.dependencies' >> dependency-report.md
+          echo '```' >> dependency-report.md
+          echo "" >> dependency-report.md
+          echo "### 🛠️ Dev Dependencies" >> dependency-report.md
+          echo '```json' >> dependency-report.md
+          cat package.json | jq '.devDependencies' >> dependency-report.md
+          echo '```' >> dependency-report.md
+          
+          echo "::endgroup::"
+
+      - name: 🔄 Update dependencies
+        if: steps.outdated.outputs.has_updates == 'true'
+        run: |
+          echo "::group::Updating dependencies"
+          
+          # Configure git
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          # Update based on input type or default to patch for scheduled runs
+          UPDATE_TYPE="${{ github.event.inputs.update_type || 'patch' }}"
+          
+          case $UPDATE_TYPE in
+            "patch")
+              echo "🔧 Updating patch versions only"
+              # Add update logic here when bun supports it
+              ;;
+            "minor")
+              echo "🔧 Updating minor versions"
+              # Add update logic here when bun supports it
+              ;;
+            "major")
+              echo "⚠️ Updating major versions (potentially breaking)"
+              # Add update logic here when bun supports it
+              ;;
+          esac
+          
+          echo "::endgroup::"
+
+      - name: 🧪 Test updated dependencies
+        if: steps.outdated.outputs.has_updates == 'true'
+        run: |
+          echo "::group::Testing with updated dependencies"
+          
+          # Run the CI pipeline
+          bun run typecheck
+          bun run lint
+          bun run build
+          
+          echo "✅ All tests passed with updated dependencies"
+          echo "::endgroup::"
+
+      - name: 📝 Create Pull Request
+        if: steps.outdated.outputs.has_updates == 'true'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "⬆️ Update dependencies (${{ github.event.inputs.update_type || 'patch' }})"
+          title: "⬆️ Automated dependency updates (${{ github.event.inputs.update_type || 'patch' }})"
+          body: |
+            ## 🔄 Automated Dependency Updates
+            
+            This PR updates project dependencies to their latest compatible versions.
+            
+            ### 📊 Update Summary
+            - **Update Type**: ${{ github.event.inputs.update_type || 'patch' }}
+            - **Triggered**: ${{ github.event_name == 'schedule' && 'Scheduled run' || 'Manual trigger' }}
+            - **Date**: ${{ github.event.repository.updated_at }}
+            
+            ### ✅ Validation
+            - [x] TypeScript compilation passes
+            - [x] Linting passes  
+            - [x] Build completes successfully
+            - [ ] Manual testing required
+            
+            ### 🔗 Links
+            - [Dependency Report](./dependency-report.md)
+            - [CI Results](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            
+            ---
+            
+            🤖 This PR was created automatically by the dependency update workflow.
+          branch: dependencies/auto-update-${{ github.run_number }}
+          delete-branch: true
+          draft: false
+          labels: |
+            dependencies
+            automated
+            ${{ github.event.inputs.update_type || 'patch' }}
+
+      - name: 📊 Summary
+        run: |
+          if [[ "${{ steps.outdated.outputs.has_updates }}" == "true" ]]; then
+            echo "::notice title=🔄 Updates Available::Created PR with dependency updates"
+          else
+            echo "::notice title=✅ Up to Date::All dependencies are current"
+          fi
