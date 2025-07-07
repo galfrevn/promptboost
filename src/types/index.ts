@@ -9,7 +9,6 @@ export interface Provider {
 export interface EnhanceRequest {
   prompt: string;
   provider?: string;
-  template?: string;
   options?: EnhanceOptions;
 }
 
@@ -20,6 +19,8 @@ export interface EnhanceOptions {
   format?: 'markdown' | 'plain';
   includeOriginal?: boolean;
   verbose?: boolean;
+  stream?: boolean;
+  mode?: 'sm' | 'md' | 'lg';
 }
 
 export interface EnhanceResponse {
@@ -37,7 +38,6 @@ export interface Config {
   defaultProvider: string;
   providers: Record<string, Provider>;
   settings: Settings;
-  templates: Record<string, string>;
 }
 
 export interface Settings {
@@ -45,21 +45,30 @@ export interface Settings {
   temperature: number;
   timeout: number;
   retries: number;
-  defaultTemplate: string;
   outputFormat: 'markdown' | 'plain';
+  defaultMode: 'sm' | 'md' | 'lg';
 }
 
-export interface Template {
-  name: string;
-  content: string;
-  variables: string[];
-}
-
-export interface ProviderError extends Error {
+export class ProviderError extends Error {
   provider: string;
   code?: string;
   statusCode?: number;
   retryable?: boolean;
+
+  constructor(
+    message: string,
+    provider: string,
+    code: string,
+    retryable: false,
+    statusCode?: number,
+  ) {
+    super(message);
+    this.name = 'ProviderError';
+    this.provider = provider;
+    this.code = code;
+    this.retryable = retryable;
+    this.statusCode = statusCode;
+  }
 }
 
 export interface APIResponse {
@@ -82,13 +91,13 @@ export interface ProviderConfig {
 
 export interface CommandOptions {
   provider?: string;
-  template?: string;
   file?: string;
   copy?: boolean;
   verbose?: boolean;
-  interactive?: boolean;
   output?: string;
   format?: 'markdown' | 'plain';
+  stream?: boolean;
+  mode?: 'sm' | 'md' | 'lg';
 }
 
 export interface ConfigSetOptions {
