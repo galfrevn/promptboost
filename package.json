@@ -1,6 +1,6 @@
 {
   "name": "promptboost",
-	"version": "1.2.2",
+  "version": "1.2.2",
   "description": "CLI tool that enhances prompts using AI providers for better terminal agent interactions",
   "main": "dist/index.js",
   "module": "src/index.ts",
